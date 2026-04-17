@@ -2,32 +2,7 @@ import { CreateEventInput, Event, EventSearchFilters } from "../dto/EventDTO";
 import { IEventRepository } from "../dto/IRepositories";
 import { BaseRepository } from "./BaseRepository";
 import { ApiError } from "../core/errors/ApiError";
-
-interface EventRow {
-  event_id: number;
-  name: string;
-  category: string;
-  description: string;
-  rules: string;
-  schedule: string;
-  venue: string;
-  prize: string | null;
-  version: number;
-  created_at: string;
-}
-
-const mapEventRow = (row: EventRow): Event => ({
-  eventId: row.event_id,
-  name: row.name,
-  category: row.category,
-  description: row.description,
-  rules: row.rules,
-  schedule: new Date(row.schedule),
-  venue: row.venue,
-  prize: row.prize,
-  version: row.version,
-  createdAt: new Date(row.created_at),
-});
+import { EventRow, mapEventRow } from "../mappers/EventMapper";
 
 export class EventRepository
   extends BaseRepository<EventRow>

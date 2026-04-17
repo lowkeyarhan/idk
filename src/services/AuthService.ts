@@ -2,7 +2,7 @@ import { ApiError } from "../core/errors/ApiError";
 import { CreateUserInput } from "../dto/UserDTO";
 import { IUserRepository } from "../dto/IRepositories";
 import { hashPassword, verifyPassword } from "../utils/hash";
-import { signToken } from "../utils/jwt";
+import { generateToken } from "../utils/jwt";
 import { AuthResponse, IAuthService, PublicUser } from "../dto/IServices";
 
 export class AuthService implements IAuthService {
@@ -40,7 +40,7 @@ export class AuthService implements IAuthService {
       password: passwordHash,
     });
 
-    const token = signToken({
+    const token = generateToken({
       userId: user.userId,
       role: user.role,
     });
@@ -62,7 +62,7 @@ export class AuthService implements IAuthService {
       throw new ApiError(401, "Invalid credentials");
     }
 
-    const token = signToken({
+    const token = generateToken({
       userId: user.userId,
       role: user.role,
     });

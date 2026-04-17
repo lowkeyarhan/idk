@@ -1,30 +1,7 @@
 import { CreateUserInput, User } from "../dto/UserDTO";
 import { IUserRepository } from "../dto/IRepositories";
 import { BaseRepository } from "./BaseRepository";
-
-interface UserRecord {
-  user_id: number;
-  name: string;
-  email: string;
-  phone: string;
-  college: string;
-  year: number;
-  password: string;
-  role: User["role"];
-  created_at: string;
-}
-
-const mapUserRow = (row: UserRecord): User => ({
-  userId: row.user_id,
-  name: row.name,
-  email: row.email,
-  phone: row.phone,
-  college: row.college,
-  year: row.year,
-  password: row.password,
-  role: row.role,
-  createdAt: new Date(row.created_at),
-});
+import { UserRecord, mapUserRow } from "../mappers/UserMapper";
 
 export class UserRepository
   extends BaseRepository<UserRecord>

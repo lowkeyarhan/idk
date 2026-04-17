@@ -1,10 +1,7 @@
-interface Entry {
-  hitCount: number;
-  firstHitAt: number;
-}
+import { SpamGuardEntry } from "../dto/SpamGuardDTO";
 
 export const createSpamGuard = (windowMs: number, maxHits: number) => {
-  const bucket = new Map<string, Entry>();
+  const bucket = new Map<string, SpamGuardEntry>();
 
   return (key: string): boolean => {
     const now = Date.now();

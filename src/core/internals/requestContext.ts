@@ -1,11 +1,7 @@
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import { NextFunction, Request, Response } from "express";
-
-export interface RequestContext {
-  requestId: string;
-  startedAt: number;
-}
+import { RequestContext } from "../../dto/RequestContextDTO";
 
 const contextStorage = new AsyncLocalStorage<RequestContext>();
 

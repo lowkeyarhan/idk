@@ -1,37 +1,38 @@
-import { AuthController } from "../controllers/AuthController";
-import { EventController } from "../controllers/EventController";
-import { QueryController } from "../controllers/QueryController";
-import { RegistrationController } from "../controllers/RegistrationController";
-import { EventRepository } from "../repos/EventRepository";
-import { QueryRepository } from "../repos/QueryRepository";
-import { RegistrationRepository } from "../repos/RegistrationRepository";
 import { UserRepository } from "../repos/UserRepository";
+import { EventRepository } from "../repos/EventRepository";
+import { RegistrationRepository } from "../repos/RegistrationRepository";
+import { QueryRepository } from "../repos/QueryRepository";
 import { AuthService } from "../services/AuthService";
 import { EventService } from "../services/EventService";
-import { QueryService } from "../services/QueryService";
 import { RegistrationService } from "../services/RegistrationService";
+import { QueryService } from "../services/QueryService";
+import { AuthController } from "../controllers/AuthController";
+import { EventController } from "../controllers/EventController";
+import { RegistrationController } from "../controllers/RegistrationController";
+import { QueryController } from "../controllers/QueryController";
+import { AppContainer } from "../dto/AppContainerDTO";
 
-export interface AppContainer {
-  authController: AuthController;
-  eventController: EventController;
-  registrationController: RegistrationController;
-  queryController: QueryController;
-}
+let container: AppContainer | null = null;
 
-export const buildContainer = (): AppContainer => {
-  const userRepository = new UserRepository();
-  const eventRepository = new EventRepository();
-  const registrationRepository = new RegistrationRepository();
-  const queryRepository = new QueryRepository();
+export const getContainer = (): AppContainer => {
+  if (container) return container;
 
-  const authService = new AuthService(userRepository);
-  const eventService = new EventService(eventRepository);
+  // Repositories
+  const userRepo = new UserRepository();
+  const eventRepo = new EventRepository();
+  const registrationRepo = new RegistrationRepository();
+  const queryRepo = new QueryRepository();
+
+  // Services
+  const authService = new AuthService(userRepo);
+  const eventService = new EventService(eventRepo);
   const registrationService = new RegistrationService(
-    registrationRepository,
-    eventRepository,
+    registrationRepo,
+    eventRepo,
   );
-  const queryService = new QueryService(queryRepository);
+  const queryService = new QueryService(queryRepo);
 
+  // Controllers
   const authController = new AuthController(authService);
   const eventController = new EventController(eventService);
   const registrationController = new RegistrationController(
@@ -39,10 +40,12 @@ export const buildContainer = (): AppContainer => {
   );
   const queryController = new QueryController(queryService);
 
-  return {
+  container = {
     authController,
     eventController,
     registrationController,
     queryController,
   };
+
+  return container;
 };

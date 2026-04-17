@@ -1,18 +1,14 @@
 import jwt from "jsonwebtoken";
-import { env } from "../config/env";
 import { UserRole } from "../dto/UserDTO";
+import { AuthPayload } from "../dto/AuthPayloadDTO";
 
-export interface AuthPayload {
-  userId: number;
-  role: UserRole;
-}
+const SECRET = process.env.JWT_SECRET || "fallback_secret_for_dev";
+const EXPIRES_IN = process.env.JWT_EXPIRES_IN || "1d";
 
-export const signToken = (payload: AuthPayload): string => {
-  return jwt.sign(payload, env.JWT_SECRET, {
-    expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions["expiresIn"],
-  });
+export const generateToken = (payload: AuthPayload): string => {
+  return jwt.sign(payload, SECRET, { expiresIn: EXPIRES_IN as any });
 };
 
 export const verifyToken = (token: string): AuthPayload => {
-  return jwt.verify(token, env.JWT_SECRET) as AuthPayload;
+  return jwt.verify(token, SECRET) as AuthPayload;
 };

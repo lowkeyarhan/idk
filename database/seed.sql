@@ -1,5 +1,4 @@
-USE tech_fest;
-
+-- Seed data for Supabase
 INSERT INTO users (name, email, phone, college, year, password, role)
 VALUES
   (
@@ -11,12 +10,15 @@ VALUES
     '$2b$10$kGfI4K6eIJS6sQe4Sg0g5e4nM3Iu6CD6Tf3SXj0gA5Q7fOkX2n5G2',
     'admin'
   )
-ON DUPLICATE KEY UPDATE
-  name = VALUES(name),
-  phone = VALUES(phone),
-  college = VALUES(college),
-  year = VALUES(year),
-  role = VALUES(role);
+ON CONFLICT (email) DO UPDATE SET
+  name = EXCLUDED.name,
+  phone = EXCLUDED.phone,
+  college = EXCLUDED.college,
+  year = EXCLUDED.year,
+  role = EXCLUDED.role;
+
+-- First add unique constraint for event names, since Postgres requires unique key for ON CONFLICT to work
+ALTER TABLE events ADD CONSTRAINT events_name_key UNIQUE (name);
 
 INSERT INTO events (name, category, description, rules, schedule, venue, prize)
 VALUES
@@ -25,7 +27,7 @@ VALUES
     'AI',
     'Build an AI-enabled prototype in a fast-paced sprint format.',
     'Team size 2-4. Original work only.',
-    DATE_ADD(NOW(), INTERVAL 15 DAY),
+    NOW() + INTERVAL '15 days',
     'Main Auditorium',
     'INR 50,000'
   ),
@@ -34,14 +36,14 @@ VALUES
     'Robotics',
     'Design and race your autonomous robot on an obstacle track.',
     'Safety checks mandatory before entry.',
-    DATE_ADD(NOW(), INTERVAL 20 DAY),
+    NOW() + INTERVAL '20 days',
     'Robotics Lab',
     'INR 30,000'
   )
-ON DUPLICATE KEY UPDATE
-  category = VALUES(category),
-  description = VALUES(description),
-  rules = VALUES(rules),
-  schedule = VALUES(schedule),
-  venue = VALUES(venue),
-  prize = VALUES(prize);
+ON CONFLICT (name) DO UPDATE SET
+  category = EXCLUDED.category,
+  description = EXCLUDED.description,
+  rules = EXCLUDED.rules,
+  schedule = EXCLUDED.schedule,
+  venue = EXCLUDED.venue,
+  prize = EXCLUDED.prize;

@@ -14,7 +14,7 @@ const log = (level: LogLevel, message: string, meta?: Record<string, unknown>): 
     ...(meta ? { meta } : {})
   };
 
-  const serialized = JSON.stringify(payload);
+  const serialized = `[${payload.ts}] [${payload.level.toUpperCase()}] ${payload.requestId ? `[${payload.requestId}] ` : ""}${message}${meta ? ` ${JSON.stringify(meta)}` : ""}`;
 
   if (level === "error") {
     console.error(serialized);

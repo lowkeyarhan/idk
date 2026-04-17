@@ -1,20 +1,19 @@
 import { Router } from "express";
-import { AppContainer } from "../container/container";
-import { buildAuthRoutes } from "./authRoutes";
-import { buildEventRoutes } from "./eventRoutes";
-import { buildQueryRoutes } from "./queryRoutes";
-import { buildRegistrationRoutes } from "./registrationRoutes";
+import { AppContainer } from "../dto/AppContainerDTO";
 
 export const buildApiRouter = (container: AppContainer): Router => {
   const router = Router();
 
-  router.use("/auth", buildAuthRoutes(container.authController));
-  router.use("/events", buildEventRoutes(container.eventController));
-  router.use(
-    "/registrations",
-    buildRegistrationRoutes(container.registrationController),
+  router.post("/auth/register", (req, res) =>
+    container.authController.register(req, res),
   );
-  router.use("/queries", buildQueryRoutes(container.queryController));
+  router.post("/auth/login", (req, res) =>
+    container.authController.login(req, res),
+  );
+
+  router.get("/events", (req, res) =>
+    container.eventController.listEvents(req, res),
+  );
 
   return router;
 };

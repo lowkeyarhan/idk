@@ -2,22 +2,10 @@ import { CreateRegistrationInput, Registration } from "../dto/RegistrationDTO";
 import { IRegistrationRepository } from "../dto/IRepositories";
 import { BaseRepository } from "./BaseRepository";
 import { ApiError } from "../core/errors/ApiError";
-
-interface RegistrationRow {
-  registration_id: number;
-  user_id: number;
-  event_id: number;
-  student_id_path: string | null;
-  registered_at: string;
-}
-
-const mapRegistrationRow = (row: RegistrationRow): Registration => ({
-  registrationId: row.registration_id,
-  userId: row.user_id,
-  eventId: row.event_id,
-  studentIdPath: row.student_id_path,
-  registeredAt: new Date(row.registered_at),
-});
+import {
+  RegistrationRow,
+  mapRegistrationRow,
+} from "../mappers/RegistrationMapper";
 
 export class RegistrationRepository
   extends BaseRepository<RegistrationRow>

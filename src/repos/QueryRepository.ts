@@ -6,30 +6,7 @@ import {
 import { IQueryRepository } from "../dto/IRepositories";
 import { BaseRepository } from "./BaseRepository";
 import { ApiError } from "../core/errors/ApiError";
-
-interface QueryRow {
-  query_id: number;
-  user_id: number | null;
-  name: string;
-  email: string;
-  question: string;
-  response: string | null;
-  status: "pending" | "resolved";
-  created_at: string;
-  resolved_at: string | null;
-}
-
-const mapQueryRow = (row: QueryRow): QueryTicket => ({
-  queryId: row.query_id,
-  userId: row.user_id,
-  name: row.name,
-  email: row.email,
-  question: row.question,
-  response: row.response,
-  status: row.status,
-  createdAt: new Date(row.created_at),
-  resolvedAt: row.resolved_at ? new Date(row.resolved_at) : null,
-});
+import { QueryRow, mapQueryRow } from "../mappers/QueryMapper";
 
 export class QueryRepository
   extends BaseRepository<QueryRow>

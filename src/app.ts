@@ -5,7 +5,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import path from "node:path";
 import "./core/polyfills";
-import { buildContainer } from "./container/container";
+import { getContainer } from "./container/container";
 import { requestContextMiddleware } from "./core/internals/requestContext";
 import { errorHandler, notFoundHandler } from "./middleware/errorMiddleware";
 import { globalLimiter } from "./middleware/rateLimiters";
@@ -24,7 +24,7 @@ const parseCorsOrigins = (value: string): string[] | true => {
 
 export const createApp = () => {
   const app = express();
-  const container = buildContainer();
+  const container = getContainer();
 
   morgan.token("request-id", (_req, res) =>
     String(res.getHeader("x-request-id") ?? "-"),
