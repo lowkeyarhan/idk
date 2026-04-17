@@ -9,14 +9,6 @@ A comprehensive backend for the college tech fest project with layered architect
 - **Repositories**: Handle database operations and SQL.
 - **Models**: Domain contracts and DTOs.
 
-This separation follows SOLID principles:
-
-- **S**: Single responsibility per layer.
-- **O**: Open for extension via interfaces.
-- **L**: Service code works against repository interfaces.
-- **I**: Focused interfaces per domain (`IUserRepository`, `IEventRepository`, etc.).
-- **D**: Dependency injection through a composition root (`src/container/container.ts`).
-
 ## Domain Features Implemented
 
 - User registration/login with JWT and bcrypt hashing.
@@ -35,14 +27,6 @@ This separation follows SOLID principles:
 - Centralized error handling and not-found handler.
 - Request-scoped tracing with `AsyncLocalStorage` internals.
 - Strictly parameterized SQL queries (no string-concatenated user inputs).
-
-## Special JS/TS Coverage Requested
-
-- **Polyfills**: `Object.groupBy` polyfill loaded at startup.
-- **Closures**: In-memory anti-spam guard for query submissions.
-- **Partial Application**: Used to normalize event filter values.
-- **Currying**: Used for filter-clamping and allowed-value selection.
-- **Node Internals**: `AsyncLocalStorage` for per-request context propagation.
 
 ## Main API Paths
 
