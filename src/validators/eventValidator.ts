@@ -38,6 +38,7 @@ export const updateEventSchema = z.object({
       schedule: z.iso.datetime().optional(),
       venue: z.string().trim().min(2).max(255).optional(),
       prize: z.string().trim().max(255).optional(),
+      currentVersion: z.number().int().positive().optional(), // for optimistic lock
     })
     .refine(
       (payload) => Object.keys(payload).length > 0,

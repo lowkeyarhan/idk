@@ -1,14 +1,14 @@
-import { ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import { dbPool } from "../config/database";
-import { CreateRegistrationInput, Registration } from "../models/Registration";
-import { IRegistrationRepository } from "./interfaces";
+import { CreateRegistrationInput, Registration } from "../dto/RegistrationDTO";
+import { IRegistrationRepository } from "../dto/IRepositories";
+import { BaseRepository } from "./BaseRepository";
+import { ApiError } from "../core/errors/ApiError";
 
-interface RegistrationRow extends RowDataPacket {
+interface RegistrationRow {
   registration_id: number;
   user_id: number;
   event_id: number;
   student_id_path: string | null;
-  registered_at: Date;
+  registered_at: string;
 }
 
 const mapRegistrationRow = (row: RegistrationRow): Registration => ({
@@ -19,72 +19,72 @@ const mapRegistrationRow = (row: RegistrationRow): Registration => ({
   registeredAt: new Date(row.registered_at),
 });
 
-export class RegistrationRepository implements IRegistrationRepository {
+export class RegistrationRepository
+  extends BaseRepository<RegistrationRow>
+  implements IRegistrationRepository
+{
+  constructor() {
+    super("registrations", "registration_id");
+  }
+
   async create(input: CreateRegistrationInput): Promise<Registration> {
-    const [result] = await dbPool.execute<ResultSetHeader>(
-      `
-      INSERT INTO registrations (user_id, event_id, student_id_path)
-      VALUES (?, ?, ?)
-      `,
-      [input.userId, input.eventId, input.studentIdPath ?? null],
-    );
+    const { data: record, error } = await this.supabase
+      .from(this.tableName)
+      .insert([
+        {
+          user_id: input.userId,
+          event_id: input.eventId,
+          student_id_path: input.studentIdPath ?? null,
+        },
+      ])
+      .select()
+      .single();
 
-    const [rows] = await dbPool.execute<RegistrationRow[]>(
-      `
-      SELECT registration_id, user_id, event_id, student_id_path, registered_at
-      FROM registrations
-      WHERE registration_id = ?
-      LIMIT 1
-      `,
-      [result.insertId],
-    );
-
-    if (rows.length === 0) {
-      throw new Error("Failed to fetch newly created registration");
+    if (error) {
+      if (error.code === "23505") {
+        // unique_violation
+        throw new ApiError(409, "User is already registered for this event");
+      }
+      throw new ApiError(500, `Registration insert failed: ${error.message}`);
     }
 
-    return mapRegistrationRow(rows[0]);
+    return mapRegistrationRow(record as RegistrationRow);
   }
 
   async exists(userId: number, eventId: number): Promise<boolean> {
-    const [rows] = await dbPool.execute<RowDataPacket[]>(
-      `
-      SELECT 1
-      FROM registrations
-      WHERE user_id = ? AND event_id = ?
-      LIMIT 1
-      `,
-      [userId, eventId],
-    );
+    const { data, error } = await this.supabase
+      .from(this.tableName)
+      .select("registration_id")
+      .eq("user_id", userId)
+      .eq("event_id", eventId)
+      .limit(1);
 
-    return rows.length > 0;
+    if (error)
+      throw new ApiError(500, `Registration search failed: ${error.message}`);
+    return data.length > 0;
   }
 
   async findByUserId(userId: number): Promise<Registration[]> {
-    const [rows] = await dbPool.execute<RegistrationRow[]>(
-      `
-      SELECT registration_id, user_id, event_id, student_id_path, registered_at
-      FROM registrations
-      WHERE user_id = ?
-      ORDER BY registered_at DESC
-      `,
-      [userId],
-    );
+    const { data: rows, error } = await this.supabase
+      .from(this.tableName)
+      .select()
+      .eq("user_id", userId)
+      .order("registered_at", { ascending: false });
 
-    return rows.map(mapRegistrationRow);
+    if (error)
+      throw new ApiError(500, `Fetch by user failed: ${error.message}`);
+    return (rows as RegistrationRow[]).map(mapRegistrationRow);
   }
 
   async findByEventId(eventId: number): Promise<Registration[]> {
-    const [rows] = await dbPool.execute<RegistrationRow[]>(
-      `
-      SELECT registration_id, user_id, event_id, student_id_path, registered_at
-      FROM registrations
-      WHERE event_id = ?
-      ORDER BY registered_at DESC
-      `,
-      [eventId],
-    );
+    const { data: rows, error } = await this.supabase
+      .from(this.tableName)
+      .select()
+      .eq("event_id", eventId)
+      .order("registered_at", { ascending: false });
 
-    return rows.map(mapRegistrationRow);
+    if (error)
+      throw new ApiError(500, `Fetch by event failed: ${error.message}`);
+    return (rows as RegistrationRow[]).map(mapRegistrationRow);
   }
 }

@@ -1,13 +1,13 @@
-import { ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import { dbPool } from "../config/database";
 import {
   CreateQueryInput,
   QueryFilters,
   QueryTicket,
-} from "../models/QueryTicket";
-import { IQueryRepository } from "./interfaces";
+} from "../dto/QueryTicketDTO";
+import { IQueryRepository } from "../dto/IRepositories";
+import { BaseRepository } from "./BaseRepository";
+import { ApiError } from "../core/errors/ApiError";
 
-interface QueryRow extends RowDataPacket {
+interface QueryRow {
   query_id: number;
   user_id: number | null;
   name: string;
@@ -15,8 +15,8 @@ interface QueryRow extends RowDataPacket {
   question: string;
   response: string | null;
   status: "pending" | "resolved";
-  created_at: Date;
-  resolved_at: Date | null;
+  created_at: string;
+  resolved_at: string | null;
 }
 
 const mapQueryRow = (row: QueryRow): QueryTicket => ({
@@ -31,93 +31,75 @@ const mapQueryRow = (row: QueryRow): QueryTicket => ({
   resolvedAt: row.resolved_at ? new Date(row.resolved_at) : null,
 });
 
-const ALLOWED_SORT_COLUMNS = {
-  created_at: "created_at",
-  status: "status",
-} as const;
+export class QueryRepository
+  extends BaseRepository<QueryRow>
+  implements IQueryRepository
+{
+  constructor() {
+    super("queries", "query_id");
+  }
 
-export class QueryRepository implements IQueryRepository {
   async create(input: CreateQueryInput): Promise<QueryTicket> {
-    const [result] = await dbPool.execute<ResultSetHeader>(
-      `
-      INSERT INTO queries (user_id, name, email, question)
-      VALUES (?, ?, ?, ?)
-      `,
-      [input.userId ?? null, input.name, input.email, input.question],
-    );
+    const raw = await this.insert({
+      user_id: input.userId ?? null,
+      name: input.name,
+      email: input.email,
+      question: input.question,
+    });
 
-    const created = await this.findById(result.insertId);
-    if (!created) {
-      throw new Error("Failed to fetch newly created query");
-    }
-
-    return created;
+    return mapQueryRow(raw);
   }
 
   async findById(queryId: number): Promise<QueryTicket | null> {
-    const [rows] = await dbPool.execute<QueryRow[]>(
-      `
-      SELECT query_id, user_id, name, email, question, response, status, created_at, resolved_at
-      FROM queries
-      WHERE query_id = ?
-      LIMIT 1
-      `,
-      [queryId],
-    );
-
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return mapQueryRow(rows[0]);
+    const raw = await super.findByIdRaw(queryId);
+    return raw ? mapQueryRow(raw) : null;
   }
 
   async findAll(filters: QueryFilters): Promise<QueryTicket[]> {
-    const whereClauses: string[] = [];
-    const params: string[] = [];
+    let query = this.supabase.from(this.tableName).select();
 
     if (filters.status) {
-      whereClauses.push("status = ?");
-      params.push(filters.status);
+      query = query.eq("status", filters.status);
     }
 
     if (filters.search) {
-      whereClauses.push("(name LIKE ? OR email LIKE ? OR question LIKE ?)");
-      const pattern = `%${filters.search}%`;
-      params.push(pattern, pattern, pattern);
+      query = query.or(
+        `name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,question.ilike.%${filters.search}%`,
+      );
     }
 
-    const whereSql =
-      whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
-    const safeSortColumn = ALLOWED_SORT_COLUMNS[filters.sortBy ?? "created_at"];
-    const safeSortOrder = filters.sortOrder === "asc" ? "ASC" : "DESC";
+    const sortCol = filters.sortBy ?? "created_at";
+    query = query.order(sortCol, { ascending: filters.sortOrder === "asc" });
 
-    const [rows] = await dbPool.execute<QueryRow[]>(
-      `
-      SELECT query_id, user_id, name, email, question, response, status, created_at, resolved_at
-      FROM queries
-      ${whereSql}
-      ORDER BY ${safeSortColumn} ${safeSortOrder}
-      `,
-      params,
-    );
+    const { data: rows, error } = await query;
+    if (error) throw new ApiError(500, `Query search failed: ${error.message}`);
 
-    return rows.map(mapQueryRow);
+    return (rows as QueryRow[]).map(mapQueryRow);
   }
 
   async respond(
     queryId: number,
     response: string,
   ): Promise<QueryTicket | null> {
-    await dbPool.execute(
-      `
-      UPDATE queries
-      SET response = ?, status = 'resolved', resolved_at = NOW()
-      WHERE query_id = ?
-      `,
-      [response, queryId],
-    );
+    const { data: record, error } = await this.supabase
+      .from(this.tableName)
+      .update({
+        response,
+        status: "resolved",
+        resolved_at: new Date().toISOString(),
+      })
+      .eq(this.primaryKey, queryId)
+      .select()
+      .single();
 
-    return this.findById(queryId);
+    if (error) {
+      if (error.code === "PGRST116") return null; // PostgREST code for "No rows"
+      throw new ApiError(
+        500,
+        `Failed to update query response: ${error.message}`,
+      );
+    }
+
+    return mapQueryRow(record as QueryRow);
   }
 }

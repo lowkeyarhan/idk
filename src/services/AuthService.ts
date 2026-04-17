@@ -1,9 +1,9 @@
 import { ApiError } from "../core/errors/ApiError";
-import { CreateUserInput } from "../models/User";
-import { IUserRepository } from "../repos/interfaces";
+import { CreateUserInput } from "../dto/UserDTO";
+import { IUserRepository } from "../dto/IRepositories";
 import { hashPassword, verifyPassword } from "../utils/hash";
 import { signToken } from "../utils/jwt";
-import { AuthResponse, IAuthService, PublicUser } from "./interfaces";
+import { AuthResponse, IAuthService, PublicUser } from "../dto/IServices";
 
 export class AuthService implements IAuthService {
   constructor(private readonly userRepository: IUserRepository) {}

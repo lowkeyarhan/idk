@@ -8,11 +8,8 @@ const envSchema = z.object({
     .enum(["development", "test", "production"])
     .default("development"),
   PORT: z.coerce.number().int().positive().default(5000),
-  DB_HOST: z.string().min(1),
-  DB_PORT: z.coerce.number().int().positive().default(3306),
-  DB_USER: z.string().min(1),
-  DB_PASSWORD: z.string().min(1),
-  DB_NAME: z.string().min(1),
+  SUPABASE_URL: z.string().url(),
+  SUPABASE_KEY: z.string().min(1),
   JWT_SECRET: z.string().min(16),
   JWT_EXPIRES_IN: z.string().default("1d"),
   SMTP_HOST: z.string().min(1),

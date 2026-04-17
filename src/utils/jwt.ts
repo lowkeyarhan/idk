@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import { env } from "../config/env";
-import { UserRole } from "../models/User";
+import { UserRole } from "../dto/UserDTO";
 
 export interface AuthPayload {
   userId: number;

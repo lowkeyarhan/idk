@@ -4,10 +4,10 @@ import {
   CreateQueryInput,
   QueryFilters,
   QueryTicket,
-} from "../models/QueryTicket";
-import { IQueryRepository } from "../repos/interfaces";
+} from "../dto/QueryTicketDTO";
+import { IQueryRepository } from "../dto/IRepositories";
 import { createSpamGuard } from "../utils/spamGuard";
-import { IQueryService } from "./interfaces";
+import { IQueryService } from "../dto/IServices";
 import { logger } from "../utils/logger";
 
 export class QueryService implements IQueryService {

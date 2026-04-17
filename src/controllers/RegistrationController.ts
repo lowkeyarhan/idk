@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { ApiError } from "../core/errors/ApiError";
-import { IRegistrationService } from "../services/interfaces";
+import { IRegistrationService } from "../dto/IServices";
 
 const parseId = (value: string | string[]): number => {
   const raw = Array.isArray(value) ? value[0] : value;

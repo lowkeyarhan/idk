@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { ApiError } from "../core/errors/ApiError";
-import { UserRole } from "../models/User";
+import { UserRole } from "../dto/UserDTO";
 import { verifyToken } from "../utils/jwt";
 
 export const authenticate = (

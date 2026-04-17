@@ -1,8 +1,9 @@
 import { ApiError } from "../core/errors/ApiError";
-import { CreateEventInput, Event, EventSearchFilters } from "../models/Event";
-import { IEventRepository } from "../repos/interfaces";
+import { CreateEventInput, Event, EventSearchFilters } from "../dto/EventDTO";
+import { IEventRepository } from "../dto/IRepositories";
+import { WeakCache } from "../utils/cache";
 import { curry, partial } from "../utils/functional";
-import { IEventService } from "./interfaces";
+import { IEventService } from "../dto/IServices";
 
 const sanitizeText = (
   value: string | undefined,
@@ -33,7 +34,15 @@ const chooseAllowed = curry(
   },
 );
 
+// We define a reference scope object to act as the cache key.
+const cacheScope = {};
+
 export class EventService implements IEventService {
+  private categoryCache = new WeakCache<
+    typeof cacheScope,
+    Array<{ category: string; count: number }>
+  >();
+
   constructor(private readonly eventRepository: IEventRepository) {}
 
   private normalizeFilters(filters: EventSearchFilters): EventSearchFilters {
@@ -77,18 +86,23 @@ export class EventService implements IEventService {
   }
 
   async createEvent(input: CreateEventInput): Promise<Event> {
-    return this.eventRepository.create(input);
+    const result = await this.eventRepository.create(input);
+    // Reset cache by renewing the scope object reference to allow old memory GC
+    this.categoryCache = new WeakCache();
+    return result;
   }
 
   async updateEvent(
     eventId: number,
-    input: Partial<CreateEventInput>,
+    input: Partial<CreateEventInput> & { currentVersion?: number },
   ): Promise<Event> {
     const updated = await this.eventRepository.update(eventId, input);
     if (!updated) {
       throw new ApiError(404, "Event not found");
     }
 
+    // Reset cache
+    this.categoryCache = new WeakCache();
     return updated;
   }
 
@@ -97,11 +111,19 @@ export class EventService implements IEventService {
     if (!removed) {
       throw new ApiError(404, "Event not found");
     }
+    // Reset cache
+    this.categoryCache = new WeakCache();
   }
 
   async getCategorySummary(): Promise<
     Array<{ category: string; count: number }>
   > {
+    // Memory Management Optimization: Use WeakMap cache attached to scope
+    const cached = this.categoryCache.get(cacheScope);
+    if (cached) {
+      return cached;
+    }
+
     const events = await this.eventRepository.findAll({
       page: 1,
       limit: 500,
@@ -118,17 +140,23 @@ export class EventService implements IEventService {
       }
     ).groupBy;
 
+    // Use Prototype Extensions & Polyfills safe check
     if (!groupBy) {
       throw new ApiError(500, "Object.groupBy polyfill failed to initialize");
     }
 
     const grouped = groupBy(events, (event) => event.category);
 
-    return Object.entries(grouped)
+    const result = Object.entries(grouped)
       .map(([category, groupedEvents]) => ({
         category,
         count: groupedEvents.length,
       }))
       .sort((a, b) => b.count - a.count);
+
+    // Store in WeakCache
+    this.categoryCache.set(cacheScope, result);
+
+    return result;
   }
 }

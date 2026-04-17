@@ -1,11 +1,11 @@
-import { CreateEventInput, Event, EventSearchFilters } from "../models/Event";
-import { CreateRegistrationInput, Registration } from "../models/Registration";
+import { CreateEventInput, Event, EventSearchFilters } from "../dto/EventDTO";
+import { CreateRegistrationInput, Registration } from "../dto/RegistrationDTO";
 import {
   CreateQueryInput,
   QueryFilters,
   QueryTicket,
-} from "../models/QueryTicket";
-import { CreateUserInput, UserRole } from "../models/User";
+} from "../dto/QueryTicketDTO";
+import { CreateUserInput, UserRole } from "../dto/UserDTO";
 
 export interface PublicUser {
   userId: number;

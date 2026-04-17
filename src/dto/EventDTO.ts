@@ -7,6 +7,7 @@ export interface Event {
   schedule: Date;
   venue: string;
   prize: string | null;
+  version: number;
   createdAt: Date;
 }
 

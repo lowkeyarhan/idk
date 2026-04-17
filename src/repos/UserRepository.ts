@@ -1,9 +1,8 @@
-import { ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import { dbPool } from "../config/database";
-import { CreateUserInput, User } from "../models/User";
-import { IUserRepository } from "./interfaces";
+import { CreateUserInput, User } from "../dto/UserDTO";
+import { IUserRepository } from "../dto/IRepositories";
+import { BaseRepository } from "./BaseRepository";
 
-interface UserRow extends RowDataPacket {
+interface UserRecord {
   user_id: number;
   name: string;
   email: string;
@@ -12,10 +11,10 @@ interface UserRow extends RowDataPacket {
   year: number;
   password: string;
   role: User["role"];
-  created_at: Date;
+  created_at: string;
 }
 
-const mapUserRow = (row: UserRow): User => ({
+const mapUserRow = (row: UserRecord): User => ({
   userId: row.user_id,
   name: row.name,
   email: row.email,
@@ -27,65 +26,45 @@ const mapUserRow = (row: UserRow): User => ({
   createdAt: new Date(row.created_at),
 });
 
-export class UserRepository implements IUserRepository {
+export class UserRepository
+  extends BaseRepository<UserRecord>
+  implements IUserRepository
+{
+  constructor() {
+    super("users", "user_id");
+  }
+
   async create(input: CreateUserInput): Promise<User> {
-    const [result] = await dbPool.execute<ResultSetHeader>(
-      `
-      INSERT INTO users (name, email, phone, college, year, password, role)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      `,
-      [
-        input.name,
-        input.email,
-        input.phone,
-        input.college,
-        input.year,
-        input.password,
-        input.role ?? "participant",
-      ],
-    );
+    const raw = await this.insert({
+      name: input.name,
+      email: input.email,
+      phone: input.phone,
+      college: input.college,
+      year: input.year,
+      password: input.password,
+      role: input.role ?? "participant",
+    });
 
-    const created = await this.findById(result.insertId);
-    if (!created) {
-      throw new Error("Failed to fetch newly created user");
-    }
-
-    return created;
+    return mapUserRow(raw);
   }
 
   async findById(userId: number): Promise<User | null> {
-    const [rows] = await dbPool.execute<UserRow[]>(
-      `
-      SELECT user_id, name, email, phone, college, year, password, role, created_at
-      FROM users
-      WHERE user_id = ?
-      LIMIT 1
-      `,
-      [userId],
-    );
-
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return mapUserRow(rows[0]);
+    const raw = await super.findByIdRaw(userId);
+    return raw ? mapUserRow(raw) : null;
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    const [rows] = await dbPool.execute<UserRow[]>(
-      `
-      SELECT user_id, name, email, phone, college, year, password, role, created_at
-      FROM users
-      WHERE email = ?
-      LIMIT 1
-      `,
-      [email],
-    );
+    const { data: record, error } = await this.supabase
+      .from(this.tableName)
+      .select()
+      .eq("email", email)
+      .single();
 
-    if (rows.length === 0) {
-      return null;
+    if (error) {
+      if (error.code === "PGRST116") return null; // Not found
+      throw new Error(`Find by email failed: ${error.message}`);
     }
 
-    return mapUserRow(rows[0]);
+    return mapUserRow(record as UserRecord);
   }
 }

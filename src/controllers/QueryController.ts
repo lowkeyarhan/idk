@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { ApiError } from "../core/errors/ApiError";
-import { QueryFilters } from "../models/QueryTicket";
-import { IQueryService } from "../services/interfaces";
+import { QueryFilters } from "../dto/QueryTicketDTO";
+import { IQueryService } from "../dto/IServices";
 
 const parseId = (value: string | string[]): number => {
   const raw = Array.isArray(value) ? value[0] : value;

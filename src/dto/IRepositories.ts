@@ -1,11 +1,11 @@
-import { CreateEventInput, Event, EventSearchFilters } from "../models/Event";
-import { CreateRegistrationInput, Registration } from "../models/Registration";
+import { CreateEventInput, Event, EventSearchFilters } from "../dto/EventDTO";
+import { CreateRegistrationInput, Registration } from "../dto/RegistrationDTO";
 import {
   CreateQueryInput,
   QueryFilters,
   QueryTicket,
-} from "../models/QueryTicket";
-import { CreateUserInput, User } from "../models/User";
+} from "../dto/QueryTicketDTO";
+import { CreateUserInput, User } from "../dto/UserDTO";
 
 export interface IUserRepository {
   create(input: CreateUserInput): Promise<User>;

@@ -1,7 +1,7 @@
 import { ApiError } from "../core/errors/ApiError";
-import { CreateRegistrationInput, Registration } from "../models/Registration";
-import { IEventRepository, IRegistrationRepository } from "../repos/interfaces";
-import { IRegistrationService } from "./interfaces";
+import { CreateRegistrationInput, Registration } from "../dto/RegistrationDTO";
+import { IEventRepository, IRegistrationRepository } from "../dto/IRepositories";
+import { IRegistrationService } from "../dto/IServices";
 
 export class RegistrationService implements IRegistrationService {
   constructor(

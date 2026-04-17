@@ -1,18 +1,19 @@
-import { ResultSetHeader, RowDataPacket } from "mysql2/promise";
-import { dbPool } from "../config/database";
-import { CreateEventInput, Event, EventSearchFilters } from "../models/Event";
-import { IEventRepository } from "./interfaces";
+import { CreateEventInput, Event, EventSearchFilters } from "../dto/EventDTO";
+import { IEventRepository } from "../dto/IRepositories";
+import { BaseRepository } from "./BaseRepository";
+import { ApiError } from "../core/errors/ApiError";
 
-interface EventRow extends RowDataPacket {
+interface EventRow {
   event_id: number;
   name: string;
   category: string;
   description: string;
   rules: string;
-  schedule: Date;
+  schedule: string;
   venue: string;
   prize: string | null;
-  created_at: Date;
+  version: number;
+  created_at: string;
 }
 
 const mapEventRow = (row: EventRow): Event => ({
@@ -24,162 +25,118 @@ const mapEventRow = (row: EventRow): Event => ({
   schedule: new Date(row.schedule),
   venue: row.venue,
   prize: row.prize,
+  version: row.version,
   createdAt: new Date(row.created_at),
 });
 
-const ALLOWED_SORT_COLUMNS = {
-  schedule: "schedule",
-  created_at: "created_at",
-  name: "name",
-} as const;
-
-const UPDATE_COLUMN_MAP: Record<keyof CreateEventInput, string> = {
-  name: "name",
-  category: "category",
-  description: "description",
-  rules: "rules",
-  schedule: "schedule",
-  venue: "venue",
-  prize: "prize",
-};
-
-export class EventRepository implements IEventRepository {
-  async create(input: CreateEventInput): Promise<Event> {
-    const [result] = await dbPool.execute<ResultSetHeader>(
-      `
-      INSERT INTO events (name, category, description, rules, schedule, venue, prize)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      `,
-      [
-        input.name,
-        input.category,
-        input.description,
-        input.rules,
-        input.schedule,
-        input.venue,
-        input.prize ?? null,
-      ],
-    );
-
-    const created = await this.findById(result.insertId);
-    if (!created) {
-      throw new Error("Failed to fetch newly created event");
-    }
-
-    return created;
+export class EventRepository
+  extends BaseRepository<EventRow>
+  implements IEventRepository
+{
+  constructor() {
+    super("events", "event_id");
   }
 
+  async create(input: CreateEventInput): Promise<Event> {
+    const raw = await this.insert({
+      name: input.name,
+      category: input.category,
+      description: input.description,
+      rules: input.rules,
+      schedule: new Date(input.schedule).toISOString(),
+      venue: input.venue,
+      prize: input.prize ?? null,
+      version: 1,
+    });
+
+    return mapEventRow(raw);
+  }
+
+  // OOP / Concurrency Control: Optimistic Locking
   async update(
     eventId: number,
-    input: Partial<CreateEventInput>,
+    input: Partial<CreateEventInput> & { currentVersion?: number },
   ): Promise<Event | null> {
-    const entries = Object.entries(input) as Array<
-      [keyof CreateEventInput, CreateEventInput[keyof CreateEventInput]]
-    >;
-    if (entries.length === 0) {
-      return this.findById(eventId);
+    const changes: Partial<EventRow> = {};
+    if (input.name) changes.name = input.name;
+    if (input.category) changes.category = input.category;
+    if (input.description) changes.description = input.description;
+    if (input.rules) changes.rules = input.rules;
+    if (input.schedule)
+      changes.schedule = new Date(input.schedule).toISOString();
+    if (input.venue) changes.venue = input.venue;
+    if (input.prize !== undefined) changes.prize = input.prize ?? null;
+
+    if (Object.keys(changes).length === 0) return this.findById(eventId);
+
+    // Explicit concurrency control: require matching current version if supplied
+    let query = this.supabase
+      .from(this.tableName)
+      .update(changes)
+      .eq(this.primaryKey, eventId);
+
+    if (input.currentVersion !== undefined) {
+      query = query.eq("version", input.currentVersion);
+      changes.version = input.currentVersion + 1; // Increment on save
     }
 
-    const assignments: string[] = [];
-    const values: Array<string | number | null> = [];
+    const { data: record, error } = await query.select().single();
 
-    for (const [key, value] of entries) {
-      if (value === undefined) {
-        continue;
+    if (error) {
+      if (error.code === "PGRST116") {
+        // If not found when explicitly passing version, optimistic lock failed.
+        if (input.currentVersion !== undefined) {
+          throw new ApiError(
+            409,
+            "Concurrency mismatch: Event was updated by another user. Reload and try again.",
+          );
+        }
+        return null;
       }
-
-      assignments.push(`${UPDATE_COLUMN_MAP[key]} = ?`);
-      values.push(value ?? null);
+      throw new ApiError(500, `Failed to update event: ${error.message}`);
     }
 
-    if (assignments.length === 0) {
-      return this.findById(eventId);
-    }
-
-    await dbPool.execute(
-      `
-      UPDATE events
-      SET ${assignments.join(", ")}
-      WHERE event_id = ?
-      `,
-      [...values, eventId],
-    );
-
-    return this.findById(eventId);
+    return mapEventRow(record as EventRow);
   }
 
   async delete(eventId: number): Promise<boolean> {
-    const [result] = await dbPool.execute<ResultSetHeader>(
-      `
-      DELETE FROM events
-      WHERE event_id = ?
-      `,
-      [eventId],
-    );
-
-    return result.affectedRows > 0;
+    return super.deleteById(eventId);
   }
 
   async findById(eventId: number): Promise<Event | null> {
-    const [rows] = await dbPool.execute<EventRow[]>(
-      `
-      SELECT event_id, name, category, description, rules, schedule, venue, prize, created_at
-      FROM events
-      WHERE event_id = ?
-      LIMIT 1
-      `,
-      [eventId],
-    );
-
-    if (rows.length === 0) {
-      return null;
-    }
-
-    return mapEventRow(rows[0]);
+    const raw = await super.findByIdRaw(eventId);
+    return raw ? mapEventRow(raw) : null;
   }
 
   async findAll(filters: EventSearchFilters): Promise<Event[]> {
-    const whereClauses: string[] = [];
-    const params: Array<string | number> = [];
+    let query = this.supabase.from(this.tableName).select();
 
     if (filters.search) {
-      whereClauses.push(
-        "(name LIKE ? OR description LIKE ? OR category LIKE ?)",
+      query = query.or(
+        `name.ilike.%${filters.search}%,description.ilike.%${filters.search}%,category.ilike.%${filters.search}%`,
       );
-      const pattern = `%${filters.search}%`;
-      params.push(pattern, pattern, pattern);
     }
 
     if (filters.category) {
-      whereClauses.push("category = ?");
-      params.push(filters.category);
+      query = query.eq("category", filters.category);
     }
 
     if (filters.upcomingOnly) {
-      whereClauses.push("schedule >= NOW()");
+      query = query.gte("schedule", new Date().toISOString());
     }
 
-    const whereSql =
-      whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
-
-    const safeSortColumn = ALLOWED_SORT_COLUMNS[filters.sortBy ?? "schedule"];
-    const safeSortOrder = filters.sortOrder === "desc" ? "DESC" : "ASC";
+    const sortCol = filters.sortBy ?? "schedule";
+    query = query.order(sortCol, { ascending: filters.sortOrder !== "desc" });
 
     const limit = Math.min(Math.max(filters.limit ?? 20, 1), 100);
     const page = Math.max(filters.page ?? 1, 1);
     const offset = (page - 1) * limit;
 
-    const [rows] = await dbPool.execute<EventRow[]>(
-      `
-      SELECT event_id, name, category, description, rules, schedule, venue, prize, created_at
-      FROM events
-      ${whereSql}
-      ORDER BY ${safeSortColumn} ${safeSortOrder}
-      LIMIT ? OFFSET ?
-      `,
-      [...params, limit, offset],
-    );
+    query = query.range(offset, offset + limit - 1);
 
-    return rows.map(mapEventRow);
+    const { data: rows, error } = await query;
+    if (error) throw new ApiError(500, `Event search failed: ${error.message}`);
+
+    return (rows as EventRow[]).map(mapEventRow);
   }
 }

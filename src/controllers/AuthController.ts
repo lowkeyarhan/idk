@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { IAuthService } from "../services/interfaces";
+import { IAuthService } from "../dto/IServices";
 
 export class AuthController {
   constructor(private readonly authService: IAuthService) {}
